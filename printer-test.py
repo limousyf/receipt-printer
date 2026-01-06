@@ -31,32 +31,61 @@ def test_network_printer(ip: str, port: int = 9100, print_test: bool = True) -> 
             sock.settimeout(5)
             sock.connect((ip, port))
             print(f"✓ Connected to {ip}:{port}")
-            
+
             if print_test:
-                print_test_page(sock, f"Network {ip}:{port}")
-            
+                test_data = (
+                    b'\x1b\x40'           # Initialize
+                    b'\x1b\x61\x01'       # Center align
+                    b'=== PRINTER TEST ===\n\n'
+                    b'\x1b\x61\x00'       # Left align
+                    b'Connection: Network\n'
+                    + f'Address: {ip}:{port}\n'.encode()
+                    + b'Status: OK\n'
+                    b'\n\n\n\n\n\n'       # Feed paper past cutter
+                    b'\x1d\x56\x00'       # Cut paper
+                )
+                sock.sendall(test_data)
+                print("✓ Test page sent")
+
             return True
     except socket.timeout:
-        print(f"✗ Connection timed out")
+        print("✗ Connection timed out")
     except ConnectionRefusedError:
-        print(f"✗ Connection refused - printer may be offline")
+        print("✗ Connection refused - printer may be offline")
     except Exception as e:
         print(f"✗ Error: {e}")
     return False
 
 
-def test_serial_printer(port: str, baudrate: int = 9600) -> bool:
+def test_serial_printer(port: str, baudrate: int = 9600, print_test: bool = True) -> bool:
     """Test serial connection to printer."""
     if not SERIAL_AVAILABLE:
         print("✗ pyserial not installed. Run: pip install pyserial")
         return False
-    
+
     print(f"Testing serial connection on {port} at {baudrate} baud...")
     try:
         with serial.Serial(port, baudrate, timeout=3) as ser:
-            # Send ESC/POS initialize command
-            ser.write(b'\x1b\x40')  # ESC @
             print(f"✓ Connected to {port}")
+
+            if print_test:
+                test_data = (
+                    b'\x1b\x40'           # Initialize
+                    b'\x1b\x61\x01'       # Center align
+                    b'=== PRINTER TEST ===\n\n'
+                    b'\x1b\x61\x00'       # Left align
+                    b'Connection: Serial\n'
+                    + f'Port: {port}\n'.encode()
+                    + b'Status: OK\n'
+                    b'\n\n\n\n\n\n'       # Feed paper past cutter
+                    b'\x1d\x56\x00'       # Cut paper
+                )
+                ser.write(test_data)
+                print("✓ Test page sent")
+            else:
+                # Just send initialize command to verify communication
+                ser.write(b'\x1b\x40')  # ESC @
+
             return True
     except serial.SerialException as e:
         print(f"✗ Serial error: {e}")
@@ -141,48 +170,63 @@ def test_usb_printer(vendor_id: int = None, product_id: int = None, print_test: 
     return found
 
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Thermal Receipt Printer Connectivity Tester",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python printer-test.py net 192.168.1.100
+  python printer-test.py net 192.168.1.100 9100 --no-print
+  python printer-test.py serial COM3
+  python printer-test.py serial /dev/ttyUSB0 115200
+  python printer-test.py usb
+  python printer-test.py usb 04b8 0e15 --no-print
+        """
+    )
+
+    parser.add_argument("--no-print", action="store_true",
+                        help="Skip printing test page (connection test only)")
+
+    subparsers = parser.add_subparsers(dest="mode", required=True)
+
+    # Network subcommand
+    net_parser = subparsers.add_parser("net", help="Test network printer")
+    net_parser.add_argument("ip", help="Printer IP address")
+    net_parser.add_argument("port", nargs="?", type=int, default=9100,
+                            help="Port number (default: 9100)")
+
+    # Serial subcommand
+    serial_parser = subparsers.add_parser("serial", help="Test serial printer")
+    serial_parser.add_argument("port", help="Serial port (e.g., COM3, /dev/ttyUSB0)")
+    serial_parser.add_argument("baudrate", nargs="?", type=int, default=9600,
+                               help="Baud rate (default: 9600)")
+
+    # USB subcommand
+    usb_parser = subparsers.add_parser("usb", help="Test USB printer")
+    usb_parser.add_argument("vendor_id", nargs="?", help="Vendor ID in hex (e.g., 04b8)")
+    usb_parser.add_argument("product_id", nargs="?", help="Product ID in hex (e.g., 0e15)")
+
+    args = parser.parse_args()
+
     print("=" * 40)
     print("Thermal Printer Connectivity Tester")
     print("=" * 40 + "\n")
-    
-    if len(sys.argv) < 2:
-        print("Usage:")
-        print("  Network:  python printer_test.py net <ip> [port]")
-        print("  Serial:   python printer_test.py serial <port> [baudrate]")
-        print("  USB:      python printer_test.py usb [vendor_id] [product_id]")
-        print("\nExamples:")
-        print("  python printer_test.py net 192.168.1.100")
-        print("  python printer_test.py serial COM3")
-        print("  python printer_test.py serial /dev/ttyUSB0 115200")
-        print("  python printer_test.py usb")
-        print("  python printer_test.py usb 04b8 0e15")
-        return
-    
-    mode = sys.argv[1].lower()
+
+    print_test = not args.no_print
+    mode = args.mode
     
     if mode == "net":
-        if len(sys.argv) < 3:
-            print("Error: IP address required")
-            return
-        ip = sys.argv[2]
-        port = int(sys.argv[3]) if len(sys.argv) > 3 else 9100
-        test_network_printer(ip, port)
-    
+        test_network_printer(args.ip, args.port, print_test=print_test)
+
     elif mode == "serial":
-        if len(sys.argv) < 3:
-            print("Error: Serial port required")
-            return
-        port = sys.argv[2]
-        baud = int(sys.argv[3]) if len(sys.argv) > 3 else 9600
-        test_serial_printer(port, baud)
-    
+        test_serial_printer(args.port, args.baudrate, print_test=print_test)
+
     elif mode == "usb":
-        vid = int(sys.argv[2], 16) if len(sys.argv) > 2 else None
-        pid = int(sys.argv[3], 16) if len(sys.argv) > 3 else None
-        test_usb_printer(vid, pid)
-    
-    else:
-        print(f"Unknown mode: {mode}")
+        vid = int(args.vendor_id, 16) if args.vendor_id else None
+        pid = int(args.product_id, 16) if args.product_id else None
+        test_usb_printer(vid, pid, print_test=print_test)
 
 
 if __name__ == "__main__":
