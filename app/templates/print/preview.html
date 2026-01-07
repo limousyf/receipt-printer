@@ -17,10 +17,16 @@
                     {% for var in variables %}
                     <div class="form-group">
                         <label for="var_{{ var }}">{{ var }}</label>
+                        {% set is_date = 'date' in var.lower() or 'time' in var.lower() %}
                         <input type="text" id="var_{{ var }}" name="var_{{ var }}" class="form-control var-input"
                                placeholder="Enter {{ var }}"
-                               data-var="{{ var }}">
+                               data-var="{{ var }}"
+                               data-is-date="{{ 'true' if is_date else 'false' }}">
+                        {% if is_date %}
+                        <small>Auto-filled with current date/time</small>
+                        {% else %}
                         <small>For arrays, use JSON: [{"name": "Item 1", "price": "10.00"}]</small>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 {% else %}
@@ -60,6 +66,30 @@
     const previewEl = document.getElementById('preview');
     const previewBtn = document.getElementById('preview-btn');
     const varInputs = document.querySelectorAll('.var-input');
+
+    // Auto-fill date/time fields
+    function autoFillDates() {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString();
+        const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        const dateTimeStr = `${dateStr} ${timeStr}`;
+
+        varInputs.forEach(input => {
+            if (input.dataset.isDate === 'true' && !input.value) {
+                const varName = input.dataset.var.toLowerCase();
+                if (varName.includes('time') && !varName.includes('date')) {
+                    input.value = timeStr;
+                } else if (varName.includes('datetime') || (varName.includes('date') && varName.includes('time'))) {
+                    input.value = dateTimeStr;
+                } else {
+                    input.value = dateStr;
+                }
+            }
+        });
+    }
+
+    // Run on page load
+    autoFillDates();
 
     function getVariables() {
         const variables = {};
@@ -110,5 +140,8 @@
             debounceTimer = setTimeout(updatePreview, 500);
         });
     });
+
+    // Initial preview with auto-filled dates
+    updatePreview();
 </script>
 {% endblock %}

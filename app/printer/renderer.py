@@ -168,25 +168,32 @@ class TemplateRenderer:
         return "\n".join(lines)
 
     def extract_variables(self, template: str) -> list:
-        """Extract variable names from template.
+        """Extract variable names from template in order of appearance.
 
         Args:
             template: Template DSL string
 
         Returns:
-            List of unique variable names
+            List of unique variable names in order of first appearance
         """
-        variables = set()
+        seen = set()
+        variables = []
 
-        # Find simple variables
-        for match in self.VAR_PATTERN.finditer(template):
-            variables.add(match.group(1))
-
-        # Find loop variables (the list name)
+        # Find loop variables first (they often appear before their contents)
         for match in self.EACH_PATTERN.finditer(template):
-            variables.add(match.group(1))
+            var_name = match.group(1)
+            if var_name not in seen:
+                seen.add(var_name)
+                variables.append(var_name)
 
-        return sorted(variables)
+        # Find simple variables in order of appearance
+        for match in self.VAR_PATTERN.finditer(template):
+            var_name = match.group(1)
+            if var_name not in seen:
+                seen.add(var_name)
+                variables.append(var_name)
+
+        return variables
 
     def _process_loops(self, template: str, variables: dict) -> str:
         """Process {{#each}} loops in template."""
