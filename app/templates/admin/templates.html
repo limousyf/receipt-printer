@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Templates - Receipt Printer{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">Receipt Templates</h1>
+        <a href="{{ url_for('admin.template_new') }}" class="btn btn-primary">New Template</a>
+    </div>
+
+    {% if templates %}
+    <div class="grid grid-3">
+        {% for template in templates %}
+        <div class="template-card">
+            <h3>{{ template.name }}</h3>
+            <p>{{ template.description or 'No description' }}</p>
+            <small class="text-muted">Updated: {{ template.updated_at.strftime('%Y-%m-%d %H:%M') if template.updated_at else 'Never' }}</small>
+            <div class="template-actions mt-2">
+                <a href="{{ url_for('admin.template_edit', template_id=template.id) }}" class="btn btn-primary btn-sm">Edit</a>
+                <a href="{{ url_for('print.print_template', template_id=template.id) }}" class="btn btn-success btn-sm">Print</a>
+                <form action="{{ url_for('admin.template_delete', template_id=template.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Delete this template?');">
+                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No templates yet</h3>
+        <p>Create your first receipt template to get started.</p>
+        <a href="{{ url_for('admin.template_new') }}" class="btn btn-primary mt-2">Create Template</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

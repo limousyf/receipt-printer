@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Print History - Receipt Printer{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">Print History</h1>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" class="flex gap-2 mb-2 flex-center">
+        <div class="form-group" style="margin-bottom: 0;">
+            <select name="status" class="form-control">
+                <option value="">All statuses</option>
+                <option value="success" {{ 'selected' if current_status == 'success' else '' }}>Success</option>
+                <option value="failed" {{ 'selected' if current_status == 'failed' else '' }}>Failed</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <select name="template_id" class="form-control">
+                <option value="">All templates</option>
+                {% for template in templates %}
+                <option value="{{ template.id }}" {{ 'selected' if current_template_id == template.id else '' }}>{{ template.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if current_status or current_template_id %}
+        <a href="{{ url_for('print.history') }}" class="btn btn-secondary">Clear</a>
+        {% endif %}
+    </form>
+
+    {% if history %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Template</th>
+                <th>Printer</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in history %}
+            <tr>
+                <td>{{ record.printed_at.strftime('%Y-%m-%d %H:%M:%S') if record.printed_at else '-' }}</td>
+                <td>{{ record.template.name if record.template else 'Deleted template' }}</td>
+                <td>{{ record.printer_config.get('name', 'Unknown') }}</td>
+                <td>
+                    <span class="badge badge-{{ 'success' if record.status == 'success' else 'error' }}">
+                        {{ record.status }}
+                    </span>
+                </td>
+                <td>
+                    <a href="{{ url_for('print.history_detail', history_id=record.id) }}" class="btn btn-secondary btn-sm">Details</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div class="flex gap-1 mt-2 flex-center" style="justify-content: center;">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('print.history', page=pagination.prev_num, status=current_status, template_id=current_template_id) }}" class="btn btn-secondary btn-sm">&laquo; Previous</a>
+        {% endif %}
+
+        <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+
+        {% if pagination.has_next %}
+        <a href="{{ url_for('print.history', page=pagination.next_num, status=current_status, template_id=current_template_id) }}" class="btn btn-secondary btn-sm">Next &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <h3>No print history</h3>
+        <p>Print a receipt to see it in the history.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

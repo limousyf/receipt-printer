@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Receipt Printer{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="{{ url_for('print.select_template') }}">Receipt Printer</a>
+        </div>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('print.select_template') }}" {% if request.blueprint == 'print' %}class="active"{% endif %}>Print</a></li>
+            <li><a href="{{ url_for('admin.templates_list') }}" {% if request.endpoint and 'template' in request.endpoint %}class="active"{% endif %}>Templates</a></li>
+            <li><a href="{{ url_for('admin.printers_list') }}" {% if request.endpoint and 'printer' in request.endpoint %}class="active"{% endif %}>Printers</a></li>
+            <li><a href="{{ url_for('print.history') }}" {% if request.endpoint == 'print.history' %}class="active"{% endif %}>History</a></li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>Receipt Printer Manager</p>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

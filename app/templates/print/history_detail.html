@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Print Details - Receipt Printer{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">Print Details #{{ record.id }}</h1>
+        <a href="{{ url_for('print.history') }}" class="btn btn-secondary">Back to History</a>
+    </div>
+
+    <div class="grid grid-2">
+        <div>
+            <h3>Information</h3>
+            <table class="table">
+                <tr>
+                    <th>Date</th>
+                    <td>{{ record.printed_at.strftime('%Y-%m-%d %H:%M:%S') if record.printed_at else '-' }}</td>
+                </tr>
+                <tr>
+                    <th>Template</th>
+                    <td>
+                        {% if record.template %}
+                        <a href="{{ url_for('admin.template_edit', template_id=record.template_id) }}">{{ record.template.name }}</a>
+                        {% else %}
+                        Deleted template
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th>Status</th>
+                    <td>
+                        <span class="badge badge-{{ 'success' if record.status == 'success' else 'error' }}">
+                            {{ record.status }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Printer</th>
+                    <td>{{ record.printer_config.get('name', 'Unknown') }} ({{ record.printer_config.get('type', 'Unknown') }})</td>
+                </tr>
+                {% if record.error_message %}
+                <tr>
+                    <th>Error</th>
+                    <td class="text-danger">{{ record.error_message }}</td>
+                </tr>
+                {% endif %}
+            </table>
+
+            <h3 class="mt-2">Variables Used</h3>
+            {% if record.variables %}
+            <pre style="background: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto;">{{ record.variables | tojson(indent=2) }}</pre>
+            {% else %}
+            <p>No variables used</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <h3>Receipt Preview</h3>
+            <div class="receipt-preview">{{ record.rendered_preview or 'No preview available' }}</div>
+
+            {% if record.template and record.status == 'failed' %}
+            <div class="mt-2">
+                <a href="{{ url_for('print.print_template', template_id=record.template_id) }}" class="btn btn-primary">Try Again</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

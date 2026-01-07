@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if printer else 'New' }} Printer - Receipt Printer{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">{{ 'Edit Printer' if printer else 'Add Printer' }}</h1>
+        <a href="{{ url_for('admin.printers_list') }}" class="btn btn-secondary">Back to List</a>
+    </div>
+
+    <form method="POST">
+        <div class="form-group">
+            <label for="name">Printer Name</label>
+            <input type="text" id="name" name="name" class="form-control"
+                   value="{{ printer.name if printer else '' }}" required
+                   placeholder="e.g., Kitchen Printer">
+        </div>
+
+        <div class="form-group">
+            <label for="type">Connection Type</label>
+            <select id="type" name="type" class="form-control" required onchange="toggleConnectionFields()">
+                <option value="">Select type...</option>
+                <option value="network" {{ 'selected' if printer and printer.type == 'network' else '' }}>Network (TCP/IP)</option>
+                <option value="serial" {{ 'selected' if printer and printer.type == 'serial' else '' }}>Serial Port</option>
+                <option value="usb" {{ 'selected' if printer and printer.type == 'usb' else '' }}>USB</option>
+            </select>
+        </div>
+
+        <!-- Network Fields -->
+        <div id="network-fields" class="connection-fields" style="display: none;">
+            <div class="form-group">
+                <label for="ip">IP Address</label>
+                <input type="text" id="ip" name="ip" class="form-control"
+                       value="{{ printer.config.get('ip', '') if printer else '' }}"
+                       placeholder="192.168.1.100">
+            </div>
+            <div class="form-group">
+                <label for="port">Port</label>
+                <input type="number" id="port" name="port" class="form-control"
+                       value="{{ printer.config.get('port', 9100) if printer else 9100 }}"
+                       placeholder="9100">
+            </div>
+        </div>
+
+        <!-- Serial Fields -->
+        <div id="serial-fields" class="connection-fields" style="display: none;">
+            <div class="form-group">
+                <label for="serial_port">Serial Port</label>
+                <input type="text" id="serial_port" name="serial_port" class="form-control"
+                       value="{{ printer.config.get('port', '') if printer else '' }}"
+                       placeholder="/dev/ttyUSB0 or COM3">
+            </div>
+            <div class="form-group">
+                <label for="baudrate">Baud Rate</label>
+                <select id="baudrate" name="baudrate" class="form-control">
+                    {% for rate in [9600, 19200, 38400, 57600, 115200] %}
+                    <option value="{{ rate }}" {{ 'selected' if printer and printer.config.get('baudrate') == rate else ('selected' if rate == 9600 else '') }}>{{ rate }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- USB Fields -->
+        <div id="usb-fields" class="connection-fields" style="display: none;">
+            <div class="form-group">
+                <label for="vendor_id">Vendor ID (hex)</label>
+                <input type="text" id="vendor_id" name="vendor_id" class="form-control"
+                       value="{{ printer.config.get('vendor_id', '') if printer else '' }}"
+                       placeholder="04b8">
+            </div>
+            <div class="form-group">
+                <label for="product_id">Product ID (hex)</label>
+                <input type="text" id="product_id" name="product_id" class="form-control"
+                       value="{{ printer.config.get('product_id', '') if printer else '' }}"
+                       placeholder="0e15">
+            </div>
+            <p class="mt-1"><small>Common vendors: Epson (04b8), Star Micronics (0519), Bixolon (0fe6)</small></p>
+        </div>
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="is_default" {{ 'checked' if printer and printer.is_default else '' }}>
+                Set as default printer
+            </label>
+        </div>
+
+        <div class="flex gap-1">
+            <button type="submit" class="btn btn-primary">Save Printer</button>
+            {% if printer %}
+            <button type="button" class="btn btn-secondary" onclick="testPrinter()">Test Connection</button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleConnectionFields() {
+    const type = document.getElementById('type').value;
+    document.querySelectorAll('.connection-fields').forEach(el => el.style.display = 'none');
+
+    if (type) {
+        document.getElementById(type + '-fields').style.display = 'block';
+    }
+}
+
+// Initialize on page load
+toggleConnectionFields();
+
+{% if printer %}
+function testPrinter() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = 'Testing...';
+
+    fetch('{{ url_for("admin.printer_test", printer_id=printer.id) }}', {
+        method: 'POST',
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Test successful! Check the printer for output.');
+        } else {
+            alert('Test failed: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Test failed: ' + error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'Test Connection';
+    });
+}
+{% endif %}
+</script>
+{% endblock %}

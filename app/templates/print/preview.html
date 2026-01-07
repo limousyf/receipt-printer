@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Print {{ template.name }} - Receipt Printer{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1 class="card-title">Print: {{ template.name }}</h1>
+        <a href="{{ url_for('print.select_template') }}" class="btn btn-secondary">Back</a>
+    </div>
+
+    <form method="POST" id="print-form">
+        <div class="editor-container">
+            <div>
+                <h3>Variables</h3>
+                {% if variables %}
+                    {% for var in variables %}
+                    <div class="form-group">
+                        <label for="var_{{ var }}">{{ var }}</label>
+                        <input type="text" id="var_{{ var }}" name="var_{{ var }}" class="form-control var-input"
+                               placeholder="Enter {{ var }}"
+                               data-var="{{ var }}">
+                        <small>For arrays, use JSON: [{"name": "Item 1", "price": "10.00"}]</small>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p>This template has no variables.</p>
+                {% endif %}
+
+                <div class="form-group">
+                    <label for="printer_id">Printer</label>
+                    <select id="printer_id" name="printer_id" class="form-control" required>
+                        <option value="">Select printer...</option>
+                        {% for printer in printers %}
+                        <option value="{{ printer.id }}" {{ 'selected' if default_printer and default_printer.id == printer.id else '' }}>
+                            {{ printer.name }} ({{ printer.type }})
+                            {% if printer.is_default %} - Default{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex gap-1 mt-2">
+                    <button type="submit" class="btn btn-success" {% if not printers %}disabled{% endif %}>Print</button>
+                    <button type="button" id="preview-btn" class="btn btn-secondary">Update Preview</button>
+                </div>
+            </div>
+
+            <div>
+                <h3>Preview</h3>
+                <div id="preview" class="receipt-preview">{{ preview }}</div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const previewEl = document.getElementById('preview');
+    const previewBtn = document.getElementById('preview-btn');
+    const varInputs = document.querySelectorAll('.var-input');
+
+    function getVariables() {
+        const variables = {};
+        varInputs.forEach(input => {
+            const varName = input.dataset.var;
+            let value = input.value;
+
+            // Try to parse as JSON for arrays
+            if (value.trim().startsWith('[')) {
+                try {
+                    value = JSON.parse(value);
+                } catch (e) {
+                    // Keep as string if not valid JSON
+                }
+            }
+            variables[varName] = value;
+        });
+        return variables;
+    }
+
+    function updatePreview() {
+        const variables = getVariables();
+
+        fetch('{{ url_for("print.preview_with_variables", template_id=template.id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ variables: variables })
+        })
+        .then(response => response.json())
+        .then(data => {
+            previewEl.textContent = data.preview;
+        })
+        .catch(error => {
+            console.error('Preview error:', error);
+        });
+    }
+
+    // Update on button click
+    previewBtn.addEventListener('click', updatePreview);
+
+    // Debounced auto-update on typing
+    let debounceTimer;
+    varInputs.forEach(input => {
+        input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(updatePreview, 500);
+        });
+    });
+</script>
+{% endblock %}
